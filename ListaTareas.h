@@ -1,42 +1,67 @@
-#ifndef LISTATAREAS_H
-#define LISTATAREAS_H
+#ifndef LISTA_TAREAS_H
+#define LISTA_TAREAS_H
 
+#include <iostream>
+#include <locale>
 #include <vector>
+
 #include "Tarea.h"
 
-// Administra la colección de objetos Tarea: agregar, listar, cambiar estado
-// y eliminar. Encapsula el vector de tareas: nadie fuera de la clase accede
-// directamente al arreglo, solo a través de estos métodos.
+using namespace std;
+
 class ListaTareas {
 private:
-    std::vector<Tarea> tareas;
-    int siguienteId; // contador para asignar IDs únicos y crecientes
-
-    // Busca el índice dentro de 'tareas' cuyo id coincide. Devuelve -1 si no existe.
-    int buscarIndicePorId(int id) const;
+    vector<Tarea> tareas_;
 
 public:
-    ListaTareas();
+    void agregarTarea(
+        const string& description,
+        const chrono::system_clock::time_point& creationDate)
+    {
+        tareas_.emplace_back(description, creationDate);
+    }
 
-    // Crea y agrega una tarea nueva. Devuelve el id asignado, o -1 si la
-    // descripción no es válida (vacía).
-    int agregarTarea(const std::string& descripcion);
+    size_t contar() const {
+        return tareas_.size();
+    }
 
-    // Imprime todas las tareas en consola. Si la lista está vacía, lo indica.
-    void listarTareas() const;
+    void listarTareas() const {
+        if (tareas_.empty()) {
+            cout << "No hay tareas.\n";
+            return;
+        }
 
-    // Cambia el estado de la tarea con el id dado. Devuelve false si el id no existe.
-    bool cambiarEstado(int id, Estado nuevoEstado);
+        for (size_t i = 0; i < tareas_.size(); ++i) {
+            const Tarea& tarea = tareas_[i];
 
-    // Elimina la tarea con el id dado. Devuelve false si el id no existe.
-    bool eliminarTarea(int id);
+            cout << (i + 1)
+                << ". ["
+                << Tarea::estadoToString(tarea.getEstado())
+                << "] "
+                << tarea.getDescription()
+                << " (Creada: "
+                << tarea.getCreationDate()
+                << ")\n";
+        }
+    }
 
-    // Devuelve true si ya existe una tarea con ese id (útil para validar entradas).
-    bool existeId(int id) const;
+    bool cambiarEstado(size_t indice, Estado nuevoEstado) {
+        if (indice >= 1 && indice <= tareas_.size()) {
+            tareas_[indice - 1].setEstado(nuevoEstado);
+            return true;
+        }
 
-    // Cantidad de tareas actualmente en la lista.
-    size_t cantidad() const;
+        return false;
+    }
+
+    bool eliminarTarea(size_t indice) {
+        if (indice >= 1 && indice <= tareas_.size()) {
+            tareas_.erase(tareas_.begin() + (indice - 1));
+            return true;
+        }
+
+        return false;
+    }
 };
 
-#endif // LISTATAREAS_H
-
+#endif

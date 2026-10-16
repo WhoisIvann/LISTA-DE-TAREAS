@@ -1,47 +1,80 @@
 #ifndef TAREA_H
 #define TAREA_H
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include <string>
 
-// Estado posible de una tarea.
+using namespace std;
+
 enum class Estado {
-    PENDIENTE,
-    EN_PROGRESO,
-    COMPLETADA
+    Pendiente = 1,
+    EnProgreso = 2,
+    Completada = 3
 };
 
-// Convierte un Estado a texto legible, y viceversa (para el menú).
-std::string estadoATexto(Estado estado);
-Estado textoAEstado(int opcion); // 1=PENDIENTE, 2=EN_PROGRESO, 3=COMPLETADA
-
-// Representa una tarea individual dentro de la lista de tareas.
-// Atributos privados: solo se accede/modifica a través de los métodos públicos,
-// lo que permite validar datos y mantener invariantes de la clase.
 class Tarea {
 private:
-    int id;
-    std::string descripcion;
-    Estado estado;
-    std::string fechaCreacion; // formato: AAAA-MM-DD HH:MM
+    string description_;
+    Estado estado_;
+    chrono::system_clock::time_point creationDate_;
 
 public:
-    // Constructor: la fecha de creación se calcula automáticamente.
-    Tarea(int id, const std::string& descripcion);
+    Tarea(const string& description, const chrono::system_clock::time_point& creationDate)
+        : description_(description),
+        estado_(Estado::Pendiente),
+        creationDate_(creationDate)
+    {
+    }
 
-    // --- Getters ---
-    int getId() const;
-    std::string getDescripcion() const;
-    Estado getEstado() const;
-    std::string getFechaCreacion() const;
+    string getDescription() const {
+        return description_;
+    }
 
-    // --- Setters con validación ---
-    // Devuelve false si la descripción es inválida (vacía) y no modifica el atributo.
-    bool setDescripcion(const std::string& nuevaDescripcion);
-    void setEstado(Estado nuevoEstado);
+    Estado getEstado() const {
+        return estado_;
+    }
 
-    // Representación en texto de la tarea, lista para imprimir en el menú.
-    std::string toString() const;
+    string getCreationDate() const {
+        time_t tt = chrono::system_clock::to_time_t(creationDate_);
+        tm tmStruct;
+
+#if defined(_WIN32) || defined(_WIN64)
+        localtime_s(&tmStruct, &tt);
+#else
+        localtime_r(&tt, &tmStruct);
+#endif
+
+        ostringstream oss;
+        oss << put_time(&tmStruct, "%Y/%m/%d %H:%M:%S");
+        return oss.str();
+    }
+
+    void setDescription(const string& description) {
+        description_ = description;
+    }
+
+    void setEstado(Estado estado) {
+        estado_ = estado;
+    }
+
+    static string estadoToString(Estado estado) {
+        switch (estado) {
+        case Estado::Pendiente:
+            return "Pendiente";
+
+        case Estado::EnProgreso:
+            return "En progreso";
+
+        case Estado::Completada:
+            return "Completada";
+
+        default:
+            return "Desconocido";
+        }
+    }
 };
 
-#endif // TAREA_H
-
+#endif
