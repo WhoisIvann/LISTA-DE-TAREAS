@@ -142,10 +142,16 @@
     <ClCompile Include="ListaTareas.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Tarea.cpp" />
+    <ClCompile Include="TareaConFecha.cpp" />
+    <ClCompile Include="TareaPrioritaria.cpp" />
+    <ClCompile Include="Utilidades.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ListaTareas.h" />
     <ClInclude Include="Tarea.h" />
+    <ClInclude Include="TareaConFecha.h" />
+    <ClInclude Include="TareaPrioritaria.h" />
+    <ClInclude Include="Utilidades.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
