@@ -1,76 +1,112 @@
 #include "Tarea.h"
+
+#include <cctype>
 #include <ctime>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
 
-std::string estadoATexto(Estado estado) {
-    switch (estado) {
-    case Estado::PENDIENTE:    return "Pendiente";
-    case Estado::EN_PROGRESO:  return "En progreso";
-    case Estado::COMPLETADA:   return "Completada";
-    }
-    return "Desconocido";
+using namespace std;
+
+Tarea::Tarea(const string& description,
+             const chrono::system_clock::time_point& creationDate)
+    : description_(description),
+      estado_(Estado::Pendiente),
+      creationDate_(creationDate)
+{
 }
 
-Estado textoAEstado(int opcion) {
-    switch (opcion) {
-    case 1: return Estado::PENDIENTE;
-    case 2: return Estado::EN_PROGRESO;
-    case 3: return Estado::COMPLETADA;
-    default: return Estado::PENDIENTE;
-    }
-}
-
-// Genera la fecha/hora actual como texto, usada al crear una tarea.
-static std::string fechaActual() {
-    std::time_t t = std::time(nullptr);
-    std::tm tm{};
-#if defined(_WIN32)
-    localtime_s(&tm, &t);
-#else
-    localtime_r(&t, &tm);
-#endif
-    std::ostringstream oss;
-    oss << std::put_time(&tm, "%Y-%m-%d %H:%M");
-    return oss.str();
-}
-
-Tarea::Tarea(int id, const std::string& descripcion)
-    : id(id), descripcion(descripcion), estado(Estado::PENDIENTE), fechaCreacion(fechaActual()) {}
-
-int Tarea::getId() const {
-    return id;
-}
-
-std::string Tarea::getDescripcion() const {
-    return descripcion;
+string Tarea::getDescription() const {
+    return description_;
 }
 
 Estado Tarea::getEstado() const {
-    return estado;
+    return estado_;
 }
 
-std::string Tarea::getFechaCreacion() const {
-    return fechaCreacion;
+string Tarea::getCreationDate() const {
+    return formatearFecha(creationDate_);
 }
 
-bool Tarea::setDescripcion(const std::string& nuevaDescripcion) {
-    if (nuevaDescripcion.empty()) {
-        return false;
+chrono::system_clock::time_point Tarea::getCreationTimePoint() const {
+    return creationDate_;
+}
+
+void Tarea::setDescription(const string& description) {
+    description_ = description;
+}
+
+void Tarea::setEstado(Estado estado) {
+    estado_ = estado;
+}
+
+string Tarea::tipo() const {
+    return "Normal";
+}
+
+void Tarea::mostrar(ostream& os) const {
+    os << "[" << estadoToString(estado_) << "] "
+       << description_
+       << " (Creada: " << getCreationDate() << ")";
+}
+
+int Tarea::peso() const {
+    return 0;  // una tarea normal no tiene prioridad especial
+}
+
+chrono::system_clock::time_point Tarea::fechaReferencia() const {
+    return creationDate_;
+}
+
+bool Tarea::operator<(const Tarea& otra) const {
+    // peso() y fechaReferencia() son virtuales, asi que aqui
+    // se usa la version de la clase real de cada tarea.
+    if (peso() != otra.peso()) {
+        return peso() > otra.peso();
     }
-    descripcion = nuevaDescripcion;
-    return true;
+    return fechaReferencia() < otra.fechaReferencia();
 }
 
-void Tarea::setEstado(Estado nuevoEstado) {
-    estado = nuevoEstado;
+static string enMinusculas(string texto) {
+    for (char& c : texto) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+    }
+    return texto;
 }
 
-std::string Tarea::toString() const {
-    std::ostringstream oss;
-    oss << "[" << id << "] "
-        << descripcion
-        << " | Estado: " << estadoATexto(estado)
-        << " | Creada: " << fechaCreacion;
+bool Tarea::operator==(const Tarea& otra) const {
+    return tipo() == otra.tipo() &&
+           enMinusculas(description_) == enMinusculas(otra.description_);
+}
+
+string Tarea::estadoToString(Estado estado) {
+    switch (estado) {
+    case Estado::Pendiente:
+        return "Pendiente";
+    case Estado::EnProgreso:
+        return "En progreso";
+    case Estado::Completada:
+        return "Completada";
+    default:
+        return "Desconocido";
+    }
+}
+
+string Tarea::formatearFecha(const chrono::system_clock::time_point& tp) {
+    time_t tt = chrono::system_clock::to_time_t(tp);
+    tm tmStruct{};
+
+#if defined(_WIN32) || defined(_WIN64)
+    localtime_s(&tmStruct, &tt);
+#else
+    localtime_r(&tt, &tmStruct);
+#endif
+
+    ostringstream oss;
+    oss << put_time(&tmStruct, "%Y/%m/%d %H:%M");
     return oss.str();
+}
+
+ostream& operator<<(ostream& os, const Tarea& tarea) {
+    tarea.mostrar(os);
+    return os;
 }

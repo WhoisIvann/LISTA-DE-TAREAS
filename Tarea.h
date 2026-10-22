@@ -2,12 +2,8 @@
 #define TAREA_H
 
 #include <chrono>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
+#include <iostream>
 #include <string>
-
-using namespace std;
 
 enum class Estado {
     Pendiente = 1,
@@ -15,66 +11,60 @@ enum class Estado {
     Completada = 3
 };
 
+// Clase base de todas las tareas.
+// Los metodos virtuales permiten que cada tipo de tarea
+// se muestre y se ordene a su manera (polimorfismo).
 class Tarea {
 private:
-    string description_;
+    std::string description_;
     Estado estado_;
-    chrono::system_clock::time_point creationDate_;
+    std::chrono::system_clock::time_point creationDate_;
 
 public:
-    Tarea(const string& description, const chrono::system_clock::time_point& creationDate)
-        : description_(description),
-        estado_(Estado::Pendiente),
-        creationDate_(creationDate)
-    {
-    }
+    Tarea(const std::string& description,
+          const std::chrono::system_clock::time_point& creationDate);
 
-    string getDescription() const {
-        return description_;
-    }
+    // Destructor virtual: necesario porque la lista guarda
+    // punteros a Tarea que en realidad apuntan a clases derivadas.
+    virtual ~Tarea() = default;
 
-    Estado getEstado() const {
-        return estado_;
-    }
+    std::string getDescription() const;
+    Estado getEstado() const;
+    std::string getCreationDate() const;
+    std::chrono::system_clock::time_point getCreationTimePoint() const;
 
-    string getCreationDate() const {
-        time_t tt = chrono::system_clock::to_time_t(creationDate_);
-        tm tmStruct;
+    void setDescription(const std::string& description);
+    void setEstado(Estado estado);
 
-#if defined(_WIN32) || defined(_WIN64)
-        localtime_s(&tmStruct, &tt);
-#else
-        localtime_r(&tt, &tmStruct);
-#endif
+    // ---- Comportamiento que cada clase derivada puede sobrescribir ----
 
-        ostringstream oss;
-        oss << put_time(&tmStruct, "%Y/%m/%d %H:%M:%S");
-        return oss.str();
-    }
+    // Nombre del tipo de tarea ("Normal", "Con fecha", "Prioritaria").
+    virtual std::string tipo() const;
 
-    void setDescription(const string& description) {
-        description_ = description;
-    }
+    // Imprime la tarea. Las derivadas agregan sus propios datos.
+    virtual void mostrar(std::ostream& os) const;
 
-    void setEstado(Estado estado) {
-        estado_ = estado;
-    }
+    // Peso para ordenar: mientras mas alto, mas arriba en la lista.
+    virtual int peso() const;
 
-    static string estadoToString(Estado estado) {
-        switch (estado) {
-        case Estado::Pendiente:
-            return "Pendiente";
+    // Fecha que se usa para desempatar al ordenar.
+    virtual std::chrono::system_clock::time_point fechaReferencia() const;
 
-        case Estado::EnProgreso:
-            return "En progreso";
+    // ---- Sobrecarga de operadores ----
 
-        case Estado::Completada:
-            return "Completada";
+    // a < b  significa "a va antes que b" al ordenar:
+    // primero por peso (prioridad) y luego por fecha.
+    bool operator<(const Tarea& otra) const;
 
-        default:
-            return "Desconocido";
-        }
-    }
+    // Dos tareas son iguales si son del mismo tipo y tienen la
+    // misma descripcion (se usa para evitar duplicados).
+    bool operator==(const Tarea& otra) const;
+
+    static std::string estadoToString(Estado estado);
+    static std::string formatearFecha(const std::chrono::system_clock::time_point& tp);
 };
+
+// cout << tarea  ->  llama a mostrar(), que es virtual.
+std::ostream& operator<<(std::ostream& os, const Tarea& tarea);
 
 #endif
