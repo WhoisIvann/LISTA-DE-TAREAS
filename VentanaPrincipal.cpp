@@ -1,18 +1,30 @@
 #include "VentanaPrincipal.h"
 
 #include <QAction>
+#include <QBrush>
+#include <QColor>
+#include <QFont>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QStatusBar>
 #include <QStringList>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QToolBar>
+#include <exception>
 
 #include "DialogoTarea.h"
+#include "Excepciones.h"
 #include "Tarea.h"
+
+namespace {
+    // Una tarea con este peso o mas se considera urgente
+    // (prioritaria Alta o con fecha vencida) y se pinta en rojo.
+    constexpr int PESO_URGENTE = 3;
+}
 
 VentanaPrincipal::VentanaPrincipal(QWidget* parent)
     : QMainWindow(parent)
@@ -116,6 +128,18 @@ void VentanaPrincipal::refrescar() {
                             Tarea::estadoToString(tarea.getEstado()))));
         tabla_->setItem(fila, ColDetalle,
                         new QTableWidgetItem(QString::fromStdString(tarea.detalle())));
+
+        // peso() tambien es virtual: una prioritaria Alta o una tarea con
+        // fecha vencida regresan 3, sin que la ventana sepa cual de las dos es.
+        if (tarea.peso() >= PESO_URGENTE) {
+            for (int col = 0; col < NumColumnas; ++col) {
+                QTableWidgetItem* celda = tabla_->item(fila, col);
+                celda->setForeground(QBrush(QColor(200, 0, 0)));
+                QFont fuente = celda->font();
+                fuente.setBold(true);
+                celda->setFont(fuente);
+            }
+        }
     }
 
     statusBar()->showMessage(QString("%1 tarea(s)").arg(lista_.contar()));
@@ -140,19 +164,50 @@ void VentanaPrincipal::actualizarBotones() {
 }
 
 // ---------------------------------------------------------------------------
+// Manejo de errores
+// ---------------------------------------------------------------------------
+
+void VentanaPrincipal::ejecutar(const std::function<void()>& accion) {
+    try {
+        accion();
+    }
+    catch (const ErrorTareas& e) {
+        // Nuestros errores (ErrorValidacion, ErrorBaseDatos, ErrorArchivo):
+        // titulo() es virtual, cada uno trae su propio titulo.
+        mostrarError(QString::fromStdString(e.titulo()), QString::fromStdString(e.what()));
+    }
+    catch (const std::exception& e) {
+        mostrarError("Error inesperado", QString::fromStdString(e.what()));
+    }
+    catch (...) {
+        mostrarError("Error inesperado", "Ocurrió un error desconocido.");
+    }
+
+    // Pase lo que pase, la tabla se vuelve a dibujar con lo que hay en la lista.
+    refrescar();
+}
+
+void VentanaPrincipal::mostrarError(const QString& titulo, const QString& mensaje) {
+    QMessageBox::warning(this, titulo, mensaje);
+}
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 
 void VentanaPrincipal::agregarTarea() {
-    DialogoTarea dialogo(this);
-    dialogo.setWindowTitle("Agregar tarea");
+    ejecutar([this]() {
+        DialogoTarea dialogo(this);
+        dialogo.setWindowTitle("Agregar tarea");
 
-    if (dialogo.exec() == QDialog::Accepted) {
-        lista_.agregarTarea(dialogo.crearTarea());
-        refrescar();
-        // Dejar seleccionada la tarea recien agregada (queda al final).
-        tabla_->selectRow(static_cast<int>(lista_.contar()) - 1);
-    }
+        if (dialogo.exec() == QDialog::Accepted) {
+            // Lanza ErrorValidacion si ya existe una tarea igual.
+            lista_.agregarTarea(dialogo.crearTarea());
+            refrescar();
+            // Dejar seleccionada la tarea recien agregada (queda al final).
+            tabla_->selectRow(static_cast<int>(lista_.contar()) - 1);
+        }
+    });
 }
 
 void VentanaPrincipal::editarTarea() {
@@ -161,15 +216,18 @@ void VentanaPrincipal::editarTarea() {
         return;
     }
 
-    DialogoTarea dialogo(this);
-    dialogo.setWindowTitle("Editar tarea");
-    dialogo.cargar(lista_.obtener(static_cast<size_t>(fila)));
+    ejecutar([this, fila]() {
+        DialogoTarea dialogo(this);
+        dialogo.setWindowTitle("Editar tarea");
+        dialogo.cargar(lista_.obtener(static_cast<size_t>(fila)));
 
-    if (dialogo.exec() == QDialog::Accepted) {
-        lista_.editarTarea(static_cast<size_t>(fila), dialogo.crearTarea());
-        refrescar();
-        tabla_->selectRow(fila);
-    }
+        if (dialogo.exec() == QDialog::Accepted) {
+            // Lanza ErrorValidacion si quedaria repetida con otra tarea.
+            lista_.editarTarea(static_cast<size_t>(fila), dialogo.crearTarea());
+            refrescar();
+            tabla_->selectRow(fila);
+        }
+    });
 }
 
 void VentanaPrincipal::cambiarEstado() {
@@ -178,28 +236,30 @@ void VentanaPrincipal::cambiarEstado() {
         return;
     }
 
-    const Estado estados[] = {Estado::Pendiente, Estado::EnProgreso, Estado::Completada};
+    ejecutar([this, fila]() {
+        const Estado estados[] = {Estado::Pendiente, Estado::EnProgreso, Estado::Completada};
 
-    QStringList opciones;
-    for (Estado e : estados) {
-        opciones << QString::fromStdString(Tarea::estadoToString(e));
-    }
+        QStringList opciones;
+        for (Estado e : estados) {
+            opciones << QString::fromStdString(Tarea::estadoToString(e));
+        }
 
-    const Tarea& tarea = lista_.obtener(static_cast<size_t>(fila));
-    const int actual = static_cast<int>(tarea.getEstado()) - 1;  // Pendiente = 1
+        const Tarea& tarea = lista_.obtener(static_cast<size_t>(fila));
+        const int actual = static_cast<int>(tarea.getEstado()) - 1;  // Pendiente = 1
 
-    bool ok = false;
-    const QString elegido = QInputDialog::getItem(
-        this, "Cambiar estado",
-        QString("Nuevo estado de \"%1\":").arg(QString::fromStdString(tarea.getDescription())),
-        opciones, actual, false, &ok);
+        bool ok = false;
+        const QString elegido = QInputDialog::getItem(
+            this, "Cambiar estado",
+            QString("Nuevo estado de \"%1\":").arg(QString::fromStdString(tarea.getDescription())),
+            opciones, actual, false, &ok);
 
-    if (ok) {
-        const int indice = static_cast<int>(opciones.indexOf(elegido));
-        lista_.cambiarEstado(static_cast<size_t>(fila), estados[indice]);
-        refrescar();
-        tabla_->selectRow(fila);
-    }
+        if (ok) {
+            const int indice = static_cast<int>(opciones.indexOf(elegido));
+            lista_.cambiarEstado(static_cast<size_t>(fila), estados[indice]);
+            refrescar();
+            tabla_->selectRow(fila);
+        }
+    });
 }
 
 void VentanaPrincipal::eliminarTarea() {
@@ -208,13 +268,25 @@ void VentanaPrincipal::eliminarTarea() {
         return;
     }
 
-    // TODO (#22): pedir confirmacion con QMessageBox::question antes de borrar.
-    lista_.eliminarTarea(static_cast<size_t>(fila));
-    refrescar();
+    ejecutar([this, fila]() {
+        const Tarea& tarea = lista_.obtener(static_cast<size_t>(fila));
+
+        // Confirmar antes de borrar: no se puede deshacer.
+        const QMessageBox::StandardButton respuesta = QMessageBox::question(
+            this, "Eliminar tarea",
+            QString("¿Seguro que quieres eliminar \"%1\"?")
+                .arg(QString::fromStdString(tarea.getDescription())),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+
+        if (respuesta == QMessageBox::Yes) {
+            lista_.eliminarTarea(static_cast<size_t>(fila));
+        }
+    });
 }
 
 void VentanaPrincipal::ordenarTareas() {
-    // Usa operator< de Tarea: primero prioridad (peso) y despues fecha.
-    lista_.ordenar();
-    refrescar();
+    ejecutar([this]() {
+        // Usa operator< de Tarea: primero prioridad (peso) y despues fecha.
+        lista_.ordenar();
+    });
 }

@@ -2,6 +2,7 @@
 #define VENTANA_PRINCIPAL_H
 
 #include <QMainWindow>
+#include <functional>
 
 #include "ListaTareas.h"
 
@@ -54,6 +55,13 @@ private:
 
     // Indice (en la lista) de la fila seleccionada, o -1 si no hay ninguna.
     int filaSeleccionada() const;
+
+    // Ejecuta una accion dentro de try/catch. Si lanza una excepcion,
+    // la muestra en un QMessageBox y la aplicacion sigue funcionando.
+    void ejecutar(const std::function<void()>& accion);
+
+    // Muestra un error al usuario con un QMessageBox::warning.
+    void mostrarError(const QString& titulo, const QString& mensaje);
 };
 
 #endif
