@@ -20,7 +20,7 @@ Administrador de tareas en C++. Proyecto de Programación Orientada a Objetos, c
 - **Archivo → Exportar a CSV** guarda la lista en un archivo que se abre en Excel.
 - Lleva un **log** (`acciones.log`) con cada acción realizada.
 - Si algo sale mal (un dato inválido, una tarea repetida, un archivo que no se puede escribir), avisa con un mensaje y **la aplicación no se cierra**.
-- Guarda las tareas en una base de datos SQLite y las vuelve a cargar al abrir la aplicación. *(En desarrollo: tarjetas #26 y #27.)*
+- Guarda las tareas en una base de datos SQLite (`tareas.db`), con su tipo y su estado, y las vuelve a cargar al abrir la aplicación: **las tareas no se pierden al cerrarla**.
 
 ### Cuadro de diálogo para capturar o editar una tarea
 
@@ -37,6 +37,7 @@ Solo se muestran los campos del tipo elegido: fecha límite para "Con fecha" y u
 | `Aplicacion` | `QApplication` | `notify()` | Atrapa cualquier excepción que se escape de un botón o menú y la muestra en un `QMessageBox` en lugar de cerrar el programa. |
 | `ErrorTareas` | `std::runtime_error` | — | Base de las excepciones del proyecto. |
 | `ErrorValidacion`, `ErrorBaseDatos`, `ErrorArchivo` | `ErrorTareas` | `titulo()` | Un tipo de error para cada problema; cada uno trae su propio título para el mensaje. |
+| `BaseDatos` | — | — | Conexión a SQLite con QtSql: crea la tabla, guarda, actualiza, elimina y carga las tareas. Al cargar, crea el objeto del tipo correcto (`Tarea`, `TareaConFecha` o `TareaPrioritaria`) según la columna `tipo`. |
 | `ExportadorCSV`, `RegistroAcciones` | — | — | Exportar a CSV y escribir el log de acciones con `std::ofstream`. |
 
 ### Modelo separado de la interfaz
@@ -56,7 +57,7 @@ En la Fase 3 se les agregó:
 | Descripción vacía en el diálogo | Mensaje "Dato invalido" y el diálogo no se cierra. |
 | Tarea repetida (mismo tipo y descripción) | Mensaje "Dato invalido" y la tarea no se agrega. |
 | No se puede escribir el CSV o el log | Mensaje "Error de archivo". |
-| No abre la base de datos | Mensaje "Error de base de datos". |
+| No abre la base de datos o falla al guardar | Mensaje "Error de base de datos". Si falla al agregar, la tarea no se queda en la tabla. |
 | Cualquier otro error inesperado | Lo atrapa `Aplicacion::notify()` y muestra un mensaje. |
 
 ## Librerías usadas
@@ -121,13 +122,21 @@ El mismo `CMakeLists.txt` también compila la versión de consola, `ListaDeTarea
 ./build/ListaDeTareasConsola
 ```
 
+### Prueba de la base de datos
+
+`PruebaBaseDatos` guarda tareas de los tres tipos en un archivo temporal, las vuelve a leer y revisa que conserven su tipo, estado, fecha límite, urgencia e id:
+
+```bash
+./build/PruebaBaseDatos
+```
+
 ## Archivos que genera la aplicación
 
 | Archivo | Dónde | Qué contiene |
 |---|---|---|
 | `acciones.log` | Junto al ejecutable | Una línea por acción: `2026/11/27 14:05 \| Agregar \| [Prioritaria] Estudiar POO` |
 | `*.csv` | Donde elijas al exportar | `tipo,descripcion,estado,fecha_creacion,dato_extra,detalle` |
-| `tareas.db` | Junto al ejecutable | Base de datos SQLite con las tareas guardadas *(en desarrollo)* |
+| `tareas.db` | Junto al ejecutable | Base de datos SQLite con las tareas guardadas. Para empezar con la lista vacía, borra este archivo. |
 
 ## Archivos del proyecto
 
@@ -142,6 +151,8 @@ El mismo `CMakeLists.txt` también compila la versión de consola, `ListaDeTarea
 | `VentanaPrincipal.h/.cpp` | Ventana principal (`QMainWindow`). |
 | `DialogoTarea.h/.cpp` | Diálogo para capturar o editar una tarea (`QDialog`). |
 | `Archivos.h/.cpp` | Exportar a CSV y log de acciones. |
+| `BaseDatos.h/.cpp` | Base de datos SQLite (QtSql). |
+| `prueba_bd.cpp` | Programa de prueba de la base de datos (`PruebaBaseDatos`). |
 | `main.cpp` | Inicio de la aplicación con ventanas. |
 | `main_consola.cpp`, `Utilidades.h/.cpp` | Versión de consola. |
 | `CMakeLists.txt` | Instrucciones de compilación. |
