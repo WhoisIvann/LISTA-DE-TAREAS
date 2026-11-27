@@ -33,6 +33,7 @@ add_executable(ListaDeTareas
     main.cpp
     Aplicacion.h Aplicacion.cpp
     VentanaPrincipal.h VentanaPrincipal.cpp
+    Archivos.h Archivos.cpp
 )
 target_link_libraries(ListaDeTareas PRIVATE modelo Qt6::Widgets Qt6::Sql)
 

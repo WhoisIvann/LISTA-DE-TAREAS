@@ -3,7 +3,9 @@
 
 #include <QMainWindow>
 #include <functional>
+#include <string>
 
+#include "Archivos.h"
 #include "ListaTareas.h"
 
 class QAction;
@@ -35,6 +37,7 @@ private slots:
     void cambiarEstado();
     void eliminarTarea();
     void ordenarTareas();
+    void exportarCSV();
     void actualizarBotones();
 
 private:
@@ -44,6 +47,10 @@ private:
     ListaTareas lista_;
     QTableWidget* tabla_;
 
+    // Log de acciones (acciones.log, junto al ejecutable).
+    RegistroAcciones registro_;
+
+    QAction* accionExportar_;
     QAction* accionAgregar_;
     QAction* accionEditar_;
     QAction* accionCambiarEstado_;
@@ -62,6 +69,10 @@ private:
 
     // Muestra un error al usuario con un QMessageBox::warning.
     void mostrarError(const QString& titulo, const QString& mensaje);
+
+    // Escribe una accion en el log, por ejemplo: "Agregar | [Prioritaria] Estudiar".
+    void registrar(const std::string& accion, const Tarea& tarea);
+    void registrar(const std::string& accion, const std::string& descripcion);
 };
 
 #endif

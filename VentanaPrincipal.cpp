@@ -3,6 +3,9 @@
 #include <QAction>
 #include <QBrush>
 #include <QColor>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileDialog>
 #include <QFont>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -24,10 +27,22 @@ namespace {
     // Una tarea con este peso o mas se considera urgente
     // (prioritaria Alta o con fecha vencida) y se pinta en rojo.
     constexpr int PESO_URGENTE = 3;
+
+    // QString -> ruta de archivo. Se pasa por UTF-16 para que funcione
+    // tambien con carpetas que tienen acentos o ñ en Windows.
+    std::filesystem::path aRuta(const QString& texto) {
+        return std::filesystem::path(texto.toStdU16String());
+    }
+
+    // El log se guarda junto al ejecutable, para encontrarlo facil en la demo.
+    std::filesystem::path rutaLog() {
+        return aRuta(QDir(QCoreApplication::applicationDirPath()).filePath("acciones.log"));
+    }
 }
 
 VentanaPrincipal::VentanaPrincipal(QWidget* parent)
-    : QMainWindow(parent)
+    : QMainWindow(parent),
+      registro_(rutaLog())
 {
     setWindowTitle("Lista de tareas");
     resize(900, 500);
@@ -72,6 +87,21 @@ void VentanaPrincipal::crearTabla() {
 }
 
 void VentanaPrincipal::crearAcciones() {
+    // ---- Menu Archivo ----
+    accionExportar_ = new QAction("Exportar a CSV...", this);
+    accionExportar_->setShortcut(QKeySequence("Ctrl+E"));
+    connect(accionExportar_, &QAction::triggered, this, &VentanaPrincipal::exportarCSV);
+
+    QAction* accionSalir = new QAction("Salir", this);
+    accionSalir->setShortcut(QKeySequence::Quit);
+    connect(accionSalir, &QAction::triggered, this, &QWidget::close);
+
+    QMenu* menuArchivo = menuBar()->addMenu("&Archivo");
+    menuArchivo->addAction(accionExportar_);
+    menuArchivo->addSeparator();
+    menuArchivo->addAction(accionSalir);
+
+    // ---- Menu Tareas ----
     accionAgregar_       = new QAction("Agregar", this);
     accionEditar_        = new QAction("Editar", this);
     accionCambiarEstado_ = new QAction("Cambiar estado", this);
@@ -192,6 +222,20 @@ void VentanaPrincipal::mostrarError(const QString& titulo, const QString& mensaj
 }
 
 // ---------------------------------------------------------------------------
+// Log de acciones
+// ---------------------------------------------------------------------------
+
+void VentanaPrincipal::registrar(const std::string& accion, const Tarea& tarea) {
+    // tipo() es virtual: cada tarea dice de que tipo es.
+    registrar(accion, "[" + tarea.tipo() + "] " + tarea.getDescription());
+}
+
+void VentanaPrincipal::registrar(const std::string& accion, const std::string& descripcion) {
+    // Lanza ErrorArchivo si no se puede escribir; ejecutar() lo muestra.
+    registro_.registrar(accion, descripcion);
+}
+
+// ---------------------------------------------------------------------------
 // Acciones
 // ---------------------------------------------------------------------------
 
@@ -206,6 +250,8 @@ void VentanaPrincipal::agregarTarea() {
             refrescar();
             // Dejar seleccionada la tarea recien agregada (queda al final).
             tabla_->selectRow(static_cast<int>(lista_.contar()) - 1);
+
+            registrar("Agregar", lista_.obtener(lista_.contar() - 1));
         }
     });
 }
@@ -226,6 +272,8 @@ void VentanaPrincipal::editarTarea() {
             lista_.editarTarea(static_cast<size_t>(fila), dialogo.crearTarea());
             refrescar();
             tabla_->selectRow(fila);
+
+            registrar("Editar", lista_.obtener(static_cast<size_t>(fila)));
         }
     });
 }
@@ -258,6 +306,10 @@ void VentanaPrincipal::cambiarEstado() {
             lista_.cambiarEstado(static_cast<size_t>(fila), estados[indice]);
             refrescar();
             tabla_->selectRow(fila);
+
+            // Ej. "Cambiar estado a Completada" (cuenta como "completar" la tarea).
+            registrar("Cambiar estado a " + Tarea::estadoToString(estados[indice]),
+                      lista_.obtener(static_cast<size_t>(fila)));
         }
     });
 }
@@ -279,7 +331,10 @@ void VentanaPrincipal::eliminarTarea() {
             QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
 
         if (respuesta == QMessageBox::Yes) {
+            // Se guarda el texto antes de borrar: despues la tarea ya no existe.
+            const std::string eliminada = "[" + tarea.tipo() + "] " + tarea.getDescription();
             lista_.eliminarTarea(static_cast<size_t>(fila));
+            registrar("Eliminar", eliminada);
         }
     });
 }
@@ -288,5 +343,25 @@ void VentanaPrincipal::ordenarTareas() {
     ejecutar([this]() {
         // Usa operator< de Tarea: primero prioridad (peso) y despues fecha.
         lista_.ordenar();
+    });
+}
+
+void VentanaPrincipal::exportarCSV() {
+    ejecutar([this]() {
+        const QString archivo = QFileDialog::getSaveFileName(
+            this, "Exportar tareas a CSV",
+            QDir::home().filePath("tareas.csv"),
+            "Archivo CSV (*.csv)");
+
+        if (archivo.isEmpty()) {
+            return;  // el usuario cancelo
+        }
+
+        // Lanza ErrorArchivo si no se puede escribir; ejecutar() lo muestra.
+        ExportadorCSV::exportar(lista_, aRuta(archivo));
+
+        registrar("Exportar CSV", archivo.toStdString());
+        statusBar()->showMessage(QString("Se exportaron %1 tarea(s) a %2")
+                                     .arg(lista_.contar()).arg(archivo), 5000);
     });
 }
