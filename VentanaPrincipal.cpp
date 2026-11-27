@@ -40,8 +40,9 @@ namespace {
     }
 }
 
-VentanaPrincipal::VentanaPrincipal(QWidget* parent)
+VentanaPrincipal::VentanaPrincipal(BaseDatos& bd, QWidget* parent)
     : QMainWindow(parent),
+      bd_(bd),
       registro_(rutaLog())
 {
     setWindowTitle("Lista de tareas");
@@ -247,6 +248,19 @@ void VentanaPrincipal::agregarTarea() {
         if (dialogo.exec() == QDialog::Accepted) {
             // Lanza ErrorValidacion si ya existe una tarea igual.
             lista_.agregarTarea(dialogo.crearTarea());
+
+            // Guardarla en la base de datos y quedarse con su id.
+            // Si no se pudo guardar, se quita de la lista para que la
+            // tabla y la base de datos no queden diferentes.
+            const size_t nueva = lista_.contar() - 1;
+            try {
+                lista_.asignarId(nueva, bd_.guardar(lista_.obtener(nueva)));
+            }
+            catch (...) {
+                lista_.eliminarTarea(nueva);
+                throw;  // ejecutar() muestra el error
+            }
+
             refrescar();
             // Dejar seleccionada la tarea recien agregada (queda al final).
             tabla_->selectRow(static_cast<int>(lista_.contar()) - 1);
@@ -263,13 +277,15 @@ void VentanaPrincipal::editarTarea() {
     }
 
     ejecutar([this, fila]() {
-        DialogoTarea dialogo(this);
+        // El constructor de DialogoTarea que recibe la tarea ya llena los campos.
+        DialogoTarea dialogo(lista_.obtener(static_cast<size_t>(fila)), this);
         dialogo.setWindowTitle("Editar tarea");
-        dialogo.cargar(lista_.obtener(static_cast<size_t>(fila)));
 
         if (dialogo.exec() == QDialog::Accepted) {
             // Lanza ErrorValidacion si quedaria repetida con otra tarea.
             lista_.editarTarea(static_cast<size_t>(fila), dialogo.crearTarea());
+            // editarTarea() conserva el id, asi se actualiza la misma fila.
+            bd_.actualizar(lista_.obtener(static_cast<size_t>(fila)));
             refrescar();
             tabla_->selectRow(fila);
 
@@ -304,6 +320,7 @@ void VentanaPrincipal::cambiarEstado() {
         if (ok) {
             const int indice = static_cast<int>(opciones.indexOf(elegido));
             lista_.cambiarEstado(static_cast<size_t>(fila), estados[indice]);
+            bd_.actualizar(lista_.obtener(static_cast<size_t>(fila)));
             refrescar();
             tabla_->selectRow(fila);
 
@@ -333,6 +350,8 @@ void VentanaPrincipal::eliminarTarea() {
         if (respuesta == QMessageBox::Yes) {
             // Se guarda el texto antes de borrar: despues la tarea ya no existe.
             const std::string eliminada = "[" + tarea.tipo() + "] " + tarea.getDescription();
+            // Primero de la base de datos: si falla, la tarea se queda en la lista.
+            bd_.eliminar(tarea.getId());
             lista_.eliminarTarea(static_cast<size_t>(fila));
             registrar("Eliminar", eliminada);
         }

@@ -42,6 +42,10 @@ public:
     void ordenar();
 
     void cambiarEstado(size_t indice, Estado nuevoEstado);
+
+    // Guarda en la tarea el id que le dio la base de datos al insertarla.
+    void asignarId(size_t indice, int id);
+
     void eliminarTarea(size_t indice);
 
     // Borra todas las tareas (por ejemplo, antes de cargar de la base de datos).

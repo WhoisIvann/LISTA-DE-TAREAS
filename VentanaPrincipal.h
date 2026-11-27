@@ -6,6 +6,7 @@
 #include <string>
 
 #include "Archivos.h"
+#include "BaseDatos.h"
 #include "ListaTareas.h"
 
 class QAction;
@@ -19,11 +20,15 @@ class QTableWidget;
 // Para llenar la tabla solo se usan los metodos virtuales de Tarea
 // (tipo(), detalle(), ...), sin preguntar con if/switch de que tipo es
 // cada tarea: cada clase derivada responde a su manera (polimorfismo).
+//
+// Cada accion (agregar, editar, cambiar estado, eliminar) tambien se guarda
+// en la base de datos, asi las tareas siguen ahi al volver a abrir la app.
 class VentanaPrincipal : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit VentanaPrincipal(QWidget* parent = nullptr);
+    // bd: base de datos ya conectada donde se guardan los cambios.
+    explicit VentanaPrincipal(BaseDatos& bd, QWidget* parent = nullptr);
 
     // La lista que muestra la ventana (la base de datos la llena al abrir).
     ListaTareas& lista();
@@ -45,6 +50,7 @@ private:
     enum Columna { ColTipo = 0, ColDescripcion, ColEstado, ColDetalle, NumColumnas };
 
     ListaTareas lista_;
+    BaseDatos& bd_;
     QTableWidget* tabla_;
 
     // Log de acciones (acciones.log, junto al ejecutable).

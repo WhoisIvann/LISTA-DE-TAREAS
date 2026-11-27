@@ -32,9 +32,10 @@ target_include_directories(modelo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(ListaDeTareas
     main.cpp
     Aplicacion.h Aplicacion.cpp
-    DialogoTarea.h DialogoTarea.cpp
     VentanaPrincipal.h VentanaPrincipal.cpp
+    DialogoTarea.h DialogoTarea.cpp
     Archivos.h Archivos.cpp
+    BaseDatos.h BaseDatos.cpp
 )
 target_link_libraries(ListaDeTareas PRIVATE modelo Qt6::Widgets Qt6::Sql)
 
@@ -43,6 +44,13 @@ set_target_properties(ListaDeTareas PROPERTIES
     WIN32_EXECUTABLE ON
     MACOSX_BUNDLE ON
 )
+
+# ---- Prueba de la base de datos (sin ventanas): ./PruebaBaseDatos ----
+add_executable(PruebaBaseDatos
+    prueba_bd.cpp
+    BaseDatos.h BaseDatos.cpp
+)
+target_link_libraries(PruebaBaseDatos PRIVATE modelo Qt6::Sql)
 
 # ---- Version de consola (Fases 1 y 2), por si se quiere comparar ----
 add_executable(ListaDeTareasConsola

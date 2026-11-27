@@ -1,9 +1,12 @@
 // Lista de tareas - Fase 3: aplicacion de escritorio con Qt.
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QMessageBox>
 #include <exception>
 
 #include "Aplicacion.h"
+#include "BaseDatos.h"
 #include "Excepciones.h"
 #include "VentanaPrincipal.h"
 
@@ -11,11 +14,15 @@ int main(int argc, char* argv[]) {
     Aplicacion app(argc, argv);
 
     try {
-        // TODO (Augusto, #26/#27): conectar la base de datos y cargar las tareas
-        //      en ventana.lista() antes de mostrar la ventana (y luego llamar a
-        //      ventana.refrescar()); si falla, lanza ErrorBaseDatos y se
-        //      informa abajo en lugar de cerrar de golpe.
-        VentanaPrincipal ventana;
+        // La base de datos (tareas.db) va junto al ejecutable, igual que acciones.log.
+        // Si no se puede abrir o leer, lanza ErrorBaseDatos y se avisa abajo
+        // en lugar de cerrar de golpe.
+        BaseDatos bd(QDir(QCoreApplication::applicationDirPath()).filePath("tareas.db"));
+        bd.conectar();
+
+        VentanaPrincipal ventana(bd);
+        bd.cargarTodas(ventana.lista());   // las tareas guardadas la ultima vez
+        ventana.refrescar();
         ventana.show();
 
         return app.exec();
