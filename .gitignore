@@ -1,0 +1,9 @@
+build/
+out/
+*.db
+acciones.log
+CMakeLists.txt.user
+.vs/
+x64/
+Debug/
+Release/
