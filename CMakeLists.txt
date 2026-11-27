@@ -32,6 +32,7 @@ target_include_directories(modelo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(ListaDeTareas
     main.cpp
     Aplicacion.h Aplicacion.cpp
+    DialogoTarea.h DialogoTarea.cpp
 )
 target_link_libraries(ListaDeTareas PRIVATE modelo Qt6::Widgets Qt6::Sql)
 

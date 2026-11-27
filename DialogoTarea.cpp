@@ -1,35 +1,54 @@
 #include "DialogoTarea.h"
 
 #include <QComboBox>
+#include <QDateTime>
 #include <QDateTimeEdit>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <QPushButton>
 #include <QVBoxLayout>
+#include <string>
+
+#include "Excepciones.h"
+#include "Tarea.h"
+#include "TareaConFecha.h"
+#include "TareaPrioritaria.h"
 
 using namespace std;
 
+namespace {
+    // Conversiones entre las fechas de Qt y las de la biblioteca estandar.
+    chrono::system_clock::time_point aTimePoint(const QDateTime& fecha) {
+        return Tarea::desdeSegundos(fecha.toSecsSinceEpoch());
+    }
+
+    QDateTime aQDateTime(const chrono::system_clock::time_point& tp) {
+        return QDateTime::fromSecsSinceEpoch(Tarea::aSegundos(tp));
+    }
+}
+
 DialogoTarea::DialogoTarea(QWidget* parent)
     : QDialog(parent),
-      comboTipo(new QComboBox(this)),
-      editDescripcion(new QLineEdit(this)),
-      comboEstado(new QComboBox(this)),
-      editFechaLimite(new QDateTimeEdit(this)),
-      comboUrgencia(new QComboBox(this)),
-      botones(new QDialogButtonBox(
-          QDialogButtonBox::Ok or QDialogButtonBox::Cancel, this))
+      comboTipo_(new QComboBox(this)),
+      editDescripcion_(new QLineEdit(this)),
+      comboEstado_(new QComboBox(this)),
+      etiquetaFecha_(new QLabel("Fecha l√≠mite:", this)),
+      editFechaLimite_(new QDateTimeEdit(this)),
+      etiquetaUrgencia_(new QLabel("Urgencia:", this)),
+      comboUrgencia_(new QComboBox(this)),
+      botones_(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this)),
+      fechaCreacion_(chrono::system_clock::now())
 {
     configurarInterfaz();
 
-    connect(comboTipo,
-            QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this,
-            &DialogoTarea::actualizarCamposPorTipo);
+    connect(comboTipo_, &QComboBox::currentIndexChanged,
+            this, &DialogoTarea::actualizarCamposPorTipo);
 
-    connect(botones, &QDialogButtonBox::accepted, this, &DialogoTarea::accept);
-    connect(botones, &QDialogButtonBox::rejected, this, &DialogoTarea::reject);
+    // Aceptar llama a accept() (sobrescrito abajo); Cancelar a reject().
+    connect(botones_, &QDialogButtonBox::accepted, this, &DialogoTarea::accept);
+    connect(botones_, &QDialogButtonBox::rejected, this, &DialogoTarea::reject);
 
     actualizarCamposPorTipo();
 }
@@ -40,98 +59,116 @@ DialogoTarea::DialogoTarea(const Tarea& tarea, QWidget* parent)
     cargar(tarea);
 }
 
-void DialogoTarea::configurarInterfaz()
-{
-    comboTipo->addItems({
-        QStringLiteral("Normal"),
-        QStringLiteral("Con fecha"),
-        QStringLiteral("Prioritaria")
-    });
+void DialogoTarea::configurarInterfaz() {
+    setWindowTitle("Tarea");
 
-    comboEstado->addItems({
-        QStringLiteral("Pendiente"),
-        QStringLiteral("En progreso"),
-        QStringLiteral("Completada")
-    });
+    // El orden debe coincidir con IndiceTipo.
+    comboTipo_->addItems({"Normal", "Con fecha", "Prioritaria"});
 
-    comboUrgencia->addItems({
-        QStringLiteral("Baja"),
-        QStringLiteral("Media"),
-        QStringLiteral("Alta")
-    });
+    // El orden coincide con el enum Estado (Pendiente = 1, ...).
+    comboEstado_->addItems({"Pendiente", "En progreso", "Completada"});
 
-    editFechaLimite->setCalendarPopup(true);
-    editFechaLimite->setDateTime(QDateTime::currentDateTime());
+    // El orden coincide con el enum Urgencia (Baja = 1, ...).
+    comboUrgencia_->addItems({"Baja", "Media", "Alta"});
+
+    editDescripcion_->setPlaceholderText("Por ejemplo: Estudiar para el examen");
+    editDescripcion_->setMaxLength(200);
+
+    editFechaLimite_->setCalendarPopup(true);
+    editFechaLimite_->setDisplayFormat("yyyy/MM/dd HH:mm");
+    editFechaLimite_->setDateTime(QDateTime::currentDateTime().addDays(1));
 
     auto* formulario = new QFormLayout;
-    formulario->addRow(QStringLiteral("Tipo:"), comboTipo);
-    formulario->addRow(QStringLiteral("DescripciÛn:"), editDescripcion);
-    formulario->addRow(QStringLiteral("Estado:"), comboEstado);
-    formulario->addRow(QStringLiteral("Fecha lÌmite:"), editFechaLimite);
-    formulario->addRow(QStringLiteral("Urgencia:"), comboUrgencia);
+    formulario->addRow("Tipo:", comboTipo_);
+    formulario->addRow("Descripci√≥n:", editDescripcion_);
+    formulario->addRow("Estado:", comboEstado_);
+    formulario->addRow(etiquetaFecha_, editFechaLimite_);
+    formulario->addRow(etiquetaUrgencia_, comboUrgencia_);
 
-    auto* diseÒo = new QVBoxLayout(this);
-    diseÒo->addLayout(formulario);
-    diseÒo->addWidget(botones);
+    auto* disenio = new QVBoxLayout(this);
+    disenio->addLayout(formulario);
+    disenio->addWidget(botones_);
 
-    setLayout(diseÒo);
-    setWindowTitle(QStringLiteral("Tarea"));
+    setMinimumWidth(380);
 }
 
-void DialogoTarea::actualizarCamposPorTipo()
-{
-    const QString tipo = comboTipo->currentText();
+void DialogoTarea::actualizarCamposPorTipo() {
+    const int tipo = comboTipo_->currentIndex();
 
-    const bool tieneFecha =
-        tipo == QStringLiteral("Con fecha") ||
-        tipo == QStringLiteral("Prioritaria");
+    // Solo se muestran los campos del tipo elegido.
+    const bool tieneFecha = (tipo == TipoConFecha);
+    const bool tieneUrgencia = (tipo == TipoPrioritaria);
 
-    const bool tieneUrgencia =
-        tipo == QStringLiteral("Prioritaria");
+    etiquetaFecha_->setVisible(tieneFecha);
+    editFechaLimite_->setVisible(tieneFecha);
+    etiquetaUrgencia_->setVisible(tieneUrgencia);
+    comboUrgencia_->setVisible(tieneUrgencia);
 
-    editFechaLimite->setVisible(tieneFecha);
-    comboUrgencia->setVisible(tieneUrgencia);
-
-    editFechaLimite->parentWidget()->layout()->itemAt(3)->widget()
-        ->setVisible(tieneFecha);
-
-    comboUrgencia->parentWidget()->layout()->itemAt(4)->widget()
-        ->setVisible(tieneUrgencia);
+    adjustSize();
 }
 
-bool DialogoTarea::validar() const
-{
-    if (editDescripcion->text().trimmed().isEmpty()) {
-        QMessageBox::warning(
-            const_cast<DialogoTarea*>(this),
-            QStringLiteral("Datos incorrectos"),
-            QStringLiteral("La descripciÛn no puede estar vacÌa."));
+void DialogoTarea::cargar(const Tarea& tarea) {
+    // Se usan solo metodos virtuales/comunes de Tarea:
+    // tipo() dice que opcion elegir y datoExtra() trae el dato propio del tipo.
+    const int tipo = comboTipo_->findText(QString::fromStdString(tarea.tipo()));
+    comboTipo_->setCurrentIndex(tipo >= 0 ? tipo : TipoNormal);
 
-        return false;
+    editDescripcion_->setText(QString::fromStdString(tarea.getDescription()));
+    comboEstado_->setCurrentIndex(static_cast<int>(tarea.getEstado()) - 1);
+    fechaCreacion_ = tarea.getCreationTimePoint();
+
+    const string extra = tarea.datoExtra();
+    if (!extra.empty()) {
+        if (comboTipo_->currentIndex() == TipoConFecha) {
+            editFechaLimite_->setDateTime(aQDateTime(Tarea::desdeSegundos(stoll(extra))));
+        }
+        else if (comboTipo_->currentIndex() == TipoPrioritaria) {
+            comboUrgencia_->setCurrentIndex(stoi(extra) - 1);
+        }
+    }
+}
+
+unique_ptr<Tarea> DialogoTarea::crearTarea() const {
+    // Los constructores validan la descripcion y lanzan ErrorValidacion.
+    const string descripcion = editDescripcion_->text().trimmed().toStdString();
+    unique_ptr<Tarea> tarea;
+
+    switch (comboTipo_->currentIndex()) {
+    case TipoConFecha: {
+        const QDateTime limite = editFechaLimite_->dateTime();
+        if (!limite.isValid()) {
+            throw ErrorValidacion("La fecha l√≠mite no es v√°lida.");
+        }
+        tarea = make_unique<TareaConFecha>(descripcion, fechaCreacion_, aTimePoint(limite));
+        break;
+    }
+    case TipoPrioritaria:
+        tarea = make_unique<TareaPrioritaria>(
+            descripcion, fechaCreacion_,
+            static_cast<Urgencia>(comboUrgencia_->currentIndex() + 1));
+        break;
+    default:
+        tarea = make_unique<Tarea>(descripcion, fechaCreacion_);
+        break;
     }
 
-    if (editFechaLimite->isVisible() &&
-        !editFechaLimite->dateTime().isValid()) {
-        QMessageBox::warning(
-            const_cast<DialogoTarea*>(this),
-            QStringLiteral("Datos incorrectos"),
-            QStringLiteral("La fecha lÌmite no es v·lida."));
-
-        return false;
-    }
-
-    return true;
+    tarea->setEstado(static_cast<Estado>(comboEstado_->currentIndex() + 1));
+    return tarea;
 }
 
-void DialogoTarea::accept()
-{
-    if (!validar()) {
+void DialogoTarea::accept() {
+    // Antes de cerrar, se intenta crear la tarea con los datos capturados.
+    // Si algo esta mal (descripcion vacia, fecha invalida), se avisa y
+    // el dialogo NO se cierra.
+    try {
+        crearTarea();
+    }
+    catch (const ErrorTareas& e) {
+        QMessageBox::warning(this, QString::fromStdString(e.titulo()),
+                             QString::fromStdString(e.what()));
+        editDescripcion_->setFocus();
         return;
     }
 
-    QDialog::accept();
+    QDialog::accept();  // datos correctos: ahora si se cierra
 }
-
-TareaNormal(const string& descripcion, Estado estado);
-TareaConFecha(const string& descripcion, Estado estado, const QDateTime& fecha);
-TareaPrioritaria(const string& descripcion, Estado estado, const QDateTime& fecha, Urgencia urgencia);
