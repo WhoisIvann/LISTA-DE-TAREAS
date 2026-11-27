@@ -69,6 +69,11 @@ void ListaTareas::cambiarEstado(size_t indice, Estado nuevoEstado) {
     tareas_[indice]->setEstado(nuevoEstado);
 }
 
+void ListaTareas::asignarId(size_t indice, int id) {
+    validarIndice(indice);
+    tareas_[indice]->setId(id);
+}
+
 void ListaTareas::eliminarTarea(size_t indice) {
     validarIndice(indice);
     tareas_.erase(tareas_.begin() + static_cast<ptrdiff_t>(indice));
