@@ -33,6 +33,7 @@ add_executable(ListaDeTareas
     main.cpp
     Aplicacion.h Aplicacion.cpp
     VentanaPrincipal.h VentanaPrincipal.cpp
+    DialogoTarea.h DialogoTarea.cpp
     Archivos.h Archivos.cpp
     BaseDatos.h BaseDatos.cpp
 )

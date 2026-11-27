@@ -277,9 +277,9 @@ void VentanaPrincipal::editarTarea() {
     }
 
     ejecutar([this, fila]() {
-        DialogoTarea dialogo(this);
+        // El constructor de DialogoTarea que recibe la tarea ya llena los campos.
+        DialogoTarea dialogo(lista_.obtener(static_cast<size_t>(fila)), this);
         dialogo.setWindowTitle("Editar tarea");
-        dialogo.cargar(lista_.obtener(static_cast<size_t>(fila)));
 
         if (dialogo.exec() == QDialog::Accepted) {
             // Lanza ErrorValidacion si quedaria repetida con otra tarea.
