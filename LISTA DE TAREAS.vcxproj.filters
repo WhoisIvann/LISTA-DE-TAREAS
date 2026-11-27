@@ -18,7 +18,7 @@
     <ClCompile Include="ListaTareas.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="main_consola.cpp">
       <Filter>Archivos de origen</Filter>
     </ClCompile>
     <ClCompile Include="Tarea.cpp">
@@ -35,6 +35,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Excepciones.h">
+      <Filter>Archivos de encabezado</Filter>
+    </ClInclude>
     <ClInclude Include="ListaTareas.h">
       <Filter>Archivos de encabezado</Filter>
     </ClInclude>

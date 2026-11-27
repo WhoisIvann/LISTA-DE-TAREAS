@@ -35,12 +35,21 @@ string TareaPrioritaria::tipo() const {
     return "Prioritaria";
 }
 
+string TareaPrioritaria::detalle() const {
+    string texto = "Urgencia: " + urgenciaToString(urgencia_);
+    if (urgencia_ == Urgencia::Alta) {
+        texto += " (!!!)";
+    }
+    return texto;
+}
+
+string TareaPrioritaria::datoExtra() const {
+    return to_string(static_cast<int>(urgencia_));
+}
+
 void TareaPrioritaria::mostrar(ostream& os) const {
     Tarea::mostrar(os);
-    os << " | Urgencia: " << urgenciaToString(urgencia_);
-    if (urgencia_ == Urgencia::Alta) {
-        os << " (!!!)";
-    }
+    os << " | " << detalle();
 }
 
 int TareaPrioritaria::peso() const {
