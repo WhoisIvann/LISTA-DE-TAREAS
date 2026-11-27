@@ -44,6 +44,13 @@ set_target_properties(ListaDeTareas PROPERTIES
     MACOSX_BUNDLE ON
 )
 
+# ---- Prueba de la base de datos (sin ventanas): ./PruebaBaseDatos ----
+add_executable(PruebaBaseDatos
+    prueba_bd.cpp
+    BaseDatos.h BaseDatos.cpp
+)
+target_link_libraries(PruebaBaseDatos PRIVATE modelo Qt6::Sql)
+
 # ---- Version de consola (Fases 1 y 2), por si se quiere comparar ----
 add_executable(ListaDeTareasConsola
     main_consola.cpp
