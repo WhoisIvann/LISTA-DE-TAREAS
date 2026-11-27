@@ -26,6 +26,8 @@ public:
 
     // Sobrescritos de la clase base
     std::string tipo() const override;
+    std::string detalle() const override;
+    std::string datoExtra() const override;
     void mostrar(std::ostream& os) const override;
     int peso() const override;
 };

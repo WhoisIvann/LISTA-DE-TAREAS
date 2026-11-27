@@ -1,132 +1,38 @@
-#include <chrono>
-#include <iostream>
-#include <memory>
-#include <string>
+// Lista de tareas - Fase 3: aplicacion de escritorio con Qt.
 
-#include "ListaTareas.h"
-#include "Tarea.h"
-#include "TareaConFecha.h"
-#include "TareaPrioritaria.h"
-#include "Utilidades.h"
+#include <QCoreApplication>
+#include <QDir>
+#include <QMessageBox>
+#include <exception>
 
-using namespace std;
+#include "Aplicacion.h"
+#include "BaseDatos.h"
+#include "Excepciones.h"
+#include "VentanaPrincipal.h"
 
-// Agrega cualquier tipo de tarea a la lista y avisa si era repetida.
-static void agregar(ListaTareas& lista, unique_ptr<Tarea> tarea) {
-    if (lista.agregarTarea(move(tarea))) {
-        cout << "Tarea agregada.\n";
+int main(int argc, char* argv[]) {
+    Aplicacion app(argc, argv);
+
+    try {
+        // La base de datos (tareas.db) va junto al ejecutable, igual que acciones.log.
+        // Si no se puede abrir o leer, lanza ErrorBaseDatos y se avisa abajo
+        // en lugar de cerrar de golpe.
+        BaseDatos bd(QDir(QCoreApplication::applicationDirPath()).filePath("tareas.db"));
+        bd.conectar();
+
+        VentanaPrincipal ventana(bd);
+        bd.cargarTodas(ventana.lista());   // las tareas guardadas la ultima vez
+        ventana.refrescar();
+        ventana.show();
+
+        return app.exec();
     }
-    else {
-        cout << "Ya existe una tarea igual. No se agrego.\n";
+    catch (const ErrorTareas& e) {
+        QMessageBox::critical(nullptr, QString::fromStdString(e.titulo()),
+                              QString::fromStdString(e.what()));
     }
-}
-
-int main() {
-    ListaTareas lista;
-    bool salir = false;
-
-    while (!salir) {
-        mostrarMenu();
-
-        int option = leerEntero("Seleccione una opcion: ", 0, 7);
-        cout << endl;
-
-        switch (option) {
-        case 1: {
-            string desc = leerLineaNoVacia("Descripcion de la tarea: ");
-            agregar(lista, make_unique<Tarea>(desc, chrono::system_clock::now()));
-            break;
-        }
-
-        case 2: {
-            string desc = leerLineaNoVacia("Descripcion de la tarea: ");
-            auto limite = leerFecha("Fecha limite (YYYY/MM/DD o YYYY/MM/DD HH:MM:SS): ");
-            agregar(lista, make_unique<TareaConFecha>(desc, chrono::system_clock::now(), limite));
-            break;
-        }
-
-        case 3: {
-            string desc = leerLineaNoVacia("Descripcion de la tarea: ");
-            cout << "Urgencia:\n";
-            cout << "1. Baja\n";
-            cout << "2. Media\n";
-            cout << "3. Alta\n";
-            int urg = leerEntero("Seleccione la urgencia: ", 1, 3);
-            agregar(lista, make_unique<TareaPrioritaria>(desc, chrono::system_clock::now(),
-                                                         static_cast<Urgencia>(urg)));
-            break;
-        }
-
-        case 4: {
-            lista.listarTareas();
-            break;
-        }
-
-        case 5: {
-            lista.ordenar();
-            cout << "Tareas ordenadas (prioridad alta y fechas cercanas primero):\n";
-            lista.listarTareas();
-            break;
-        }
-
-        case 6: {
-            if (lista.contar() == 0) {
-                cout << "No hay tareas para cambiar de estado.\n";
-                break;
-            }
-
-            lista.listarTareas();
-
-            int idx = leerEntero("Numero de tarea a modificar: ", 1,
-                                 static_cast<int>(lista.contar()));
-
-            cout << "Estados:\n";
-            cout << "1. Pendiente\n";
-            cout << "2. En progreso\n";
-            cout << "3. Completada\n";
-
-            int est = leerEntero("Seleccione nuevo estado: ", 1, 3);
-
-            if (lista.cambiarEstado(idx, static_cast<Estado>(est))) {
-                cout << "Estado actualizado.\n";
-            }
-            else {
-                cout << "Error al actualizar estado.\n";
-            }
-            break;
-        }
-
-        case 7: {
-            if (lista.contar() == 0) {
-                cout << "No hay tareas para eliminar.\n";
-                break;
-            }
-
-            lista.listarTareas();
-
-            int idx = leerEntero("Numero de tarea a eliminar: ", 1,
-                                 static_cast<int>(lista.contar()));
-
-            if (lista.eliminarTarea(idx)) {
-                cout << "Tarea eliminada.\n";
-            }
-            else {
-                cout << "Error al eliminar tarea.\n";
-            }
-            break;
-        }
-
-        case 0:
-            salir = true;
-            break;
-
-        default:
-            break;
-        }
-
-        cout << endl;
+    catch (const std::exception& e) {
+        QMessageBox::critical(nullptr, "Error inesperado", QString::fromStdString(e.what()));
     }
-
-    cout << "Apagando...\n";
-    return 0;
+    return 1;
 }

@@ -27,12 +27,21 @@ string TareaConFecha::tipo() const {
     return "Con fecha";
 }
 
+string TareaConFecha::detalle() const {
+    string texto = "Limite: " + formatearFecha(fechaLimite_);
+    if (estaVencida()) {
+        texto += " <-- VENCIDA";
+    }
+    return texto;
+}
+
+string TareaConFecha::datoExtra() const {
+    return to_string(aSegundos(fechaLimite_));
+}
+
 void TareaConFecha::mostrar(ostream& os) const {
     Tarea::mostrar(os);  // primero lo comun de cualquier tarea
-    os << " | Limite: " << formatearFecha(fechaLimite_);
-    if (estaVencida()) {
-        os << " <-- VENCIDA";
-    }
+    os << " | " << detalle();
 }
 
 int TareaConFecha::peso() const {

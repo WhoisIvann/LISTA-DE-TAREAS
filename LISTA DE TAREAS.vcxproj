@@ -140,13 +140,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ListaTareas.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="main_consola.cpp" />
     <ClCompile Include="Tarea.cpp" />
     <ClCompile Include="TareaConFecha.cpp" />
     <ClCompile Include="TareaPrioritaria.cpp" />
     <ClCompile Include="Utilidades.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Excepciones.h" />
     <ClInclude Include="ListaTareas.h" />
     <ClInclude Include="Tarea.h" />
     <ClInclude Include="TareaConFecha.h" />
